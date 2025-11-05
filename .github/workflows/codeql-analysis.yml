@@ -5,6 +5,8 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  schedule:
+    - cron: '0 0 * * 1'  # Executa toda segunda-feira
 
 jobs:
   analyze:
@@ -34,9 +36,12 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
+          queries: security-extended,security-and-quality  # ← CRÍTICO: adicione isto!
 
       - name: Compilar projeto
-        run: mvn compile
+        run: mvn compile -DskipTests
 
       - name: Executar análise CodeQL
         uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"

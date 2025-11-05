@@ -8,6 +8,10 @@
     <artifactId>ex2</artifactId>
     <version>1.0-SNAPSHOT</version>
 
+    <build>
+        <sourceDirectory>src/main/java</sourceDirectory>
+    </build>
+
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
