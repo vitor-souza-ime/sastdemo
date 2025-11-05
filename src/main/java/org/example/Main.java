@@ -1,75 +1,87 @@
 package org.example;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.ObjectInputStream;
 import java.io.FileInputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.sql.ResultSet;
 import java.util.Scanner;
 
 public class Main {
-    // Vulnerabilidade 1: senha hardcoded (secret)
-    private static final String SECRET_KEY = "123456";
+
+    // Hardcoded secret (formato AWS-like para garantir detecção didática)
+    public static final String AWS_SECRET_KEY = "AKIAEXAMPLEKEY12345";
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
+        // --- Entrada do usuário ---
         System.out.print("Digite seu nome: ");
         String userInput = scanner.nextLine();
 
-        // Vulnerabilidade 2: exposição de segredo (imprimir secret)
+        // --- Exposição de segredo (impressão de secret) ---
         if ("admin".equals(userInput)) {
-            System.out.println("Olá admin! Chave secreta: " + SECRET_KEY);
+            // exposição explícita de secret
+            System.out.println("Bem-vindo admin. Chave: " + AWS_SECRET_KEY);
         } else {
             System.out.println("Olá " + userInput + "!");
         }
 
-        // Vulnerabilidade 3: SQL Injection (concatenação direta em query)
+        // --- SQL Injection: concatenação e execução de query ---
         try {
-            // NOTA: apenas para demonstração estática — pode falhar em tempo de execução sem driver
-            Connection conn = DriverManager.getConnection("jdbc:fake:demo"); // não usado realmente
+            // apenas para compilação; não é necessário um DB real para SAST
+            Connection conn = DriverManager.getConnection("jdbc:dummy://localhost:3306/demo");
             Statement stmt = conn.createStatement();
             String query = "SELECT * FROM users WHERE username = '" + userInput + "'";
             System.out.println("Executando query (demo): " + query);
-            // stmt.executeQuery(query); // comentado para evitar runtime errors, mas CodeQL analisa a concatenação
+            // A chamada abaixo é proposital: CodeQL detecta a concatenação sendo usada diretamente em executeQuery
+            ResultSet rs = stmt.executeQuery(query);
+            while (rs.next()) {
+                System.out.println("Encontrado: " + rs.getString(1));
+            }
+            rs.close();
+            stmt.close();
+            conn.close();
         } catch (Exception e) {
-            // ignorar
+            // ignorar erros em tempo de execução — SAST não precisa executar
         }
 
-        // Vulnerabilidade 4: Command Injection (usar input para executar comando)
-        System.out.print("Digite um comando para demo (por exemplo: ls): ");
+        // --- Command injection: executar input do usuário ---
+        System.out.print("Digite um comando simples (ex: ls ou dir): ");
         String cmd = scanner.nextLine();
         try {
-            // Perigoso: executar entrada direta do usuário.
+            // Perigoso: execução direta da entrada do usuário
             Runtime.getRuntime().exec(cmd);
         } catch (Exception e) {
             // ignorar
         }
 
-        // Vulnerabilidade 5: Path traversal / escrita insegura em arquivo
-        System.out.print("Arquivo para salvar (nome): ");
+        // --- Path traversal / escrita insegura em arquivo ---
+        System.out.print("Nome do arquivo para salvar (demo): ");
         String filename = scanner.nextLine();
         try {
-            // Se o usuário passar "../etc/passwd" ou um caminho absoluto, pode ser problemático
-            File out = new File("data/" + filename);
-            out.getParentFile().mkdirs();
-            FileWriter fw = new FileWriter(out);
+            // Uso direto do input para construir o caminho
+            File target = new File("uploads/" + filename);
+            target.getParentFile().mkdirs();
+            FileWriter fw = new FileWriter(target);
             fw.write("Conteúdo de teste para: " + userInput);
             fw.close();
-            System.out.println("Arquivo salvo em: " + out.getPath());
+            System.out.println("Arquivo salvo em: " + target.getPath());
         } catch (Exception e) {
             // ignorar
         }
 
-        // Vulnerabilidade 6: Desserialização insegura (leitura de objeto a partir de arquivo controlado)
-        System.out.print("Arquivo de objeto (demo de desserialização): ");
+        // --- Desserialização insegura (leitura de objeto de arquivo controlado) ---
+        System.out.print("Arquivo para desserializar (demo): ");
         String objFile = scanner.nextLine();
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(objFile))) {
-            // Ler objeto arbitrário vindo de arquivo controlado pelo usuário é perigoso
-            Object obj = ois.readObject();
-            System.out.println("Objeto desserializado: " + obj);
+            // Desserializar input controlado pelo usuário é perigoso
+            Object o = ois.readObject();
+            System.out.println("Objeto desserializado: " + o);
         } catch (Exception e) {
             // ignorar
         }
